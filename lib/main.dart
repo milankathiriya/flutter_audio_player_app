@@ -19,7 +19,9 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
+  bool isPlay = false;
+
   List<Map<String, dynamic>> allSongs = [
     {
       'name': 'Gori Tame Manada Lidha Mohi Raj',
@@ -37,9 +39,36 @@ class _HomePageState extends State<HomePage> {
 
   initAudio() async {
     for (Map<String, dynamic> data in allSongs) {
+      data['animationController'] = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 400),
+      );
+
       await data['player'].open(
-        Audio(data['path']),
+        Audio(
+          data['path'],
+          metas: Metas(
+            title: data['name'],
+            album: data['path'],
+            image: const MetasImage.network(
+                "https://m.media-amazon.com/images/I/71hMEM1a9EL._SL1500_.jpg"),
+          ),
+        ),
         autoStart: false,
+        showNotification: true,
+        notificationSettings: NotificationSettings(
+          customPlayPauseAction: (AssetsAudioPlayer audioPlayer) {
+            late int id;
+
+            for (Map<String, dynamic> data in allSongs) {
+              if (data['player'] == audioPlayer) {
+                id = allSongs.indexOf(data);
+              }
+            }
+
+            playOrPauseAudio(index: id);
+          },
+        ),
       );
     }
 
@@ -82,22 +111,36 @@ class _HomePageState extends State<HomePage> {
                     mainAxisAlignment: MainAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.play_arrow),
-                        onPressed: () async {
-                          await allSongs[i]['player'].play();
+                      GestureDetector(
+                        onTap: () {
+                          playOrPauseAudio(index: i);
                         },
+                        child: AnimatedIcon(
+                          icon: AnimatedIcons.play_pause,
+                          progress: allSongs[i]['animationController'],
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.pause),
-                        onPressed: () async {
-                          await allSongs[i]['player'].pause();
-                        },
-                      ),
+                      // IconButton(
+                      //   icon: const Icon(Icons.play_arrow),
+                      //   onPressed: () async {
+                      //     await allSongs[i]['player'].play();
+                      //   },
+                      // ),
+                      // IconButton(
+                      //   icon: const Icon(Icons.pause),
+                      //   onPressed: () async {
+                      //     await allSongs[i]['player'].pause();
+                      //   },
+                      // ),
                       IconButton(
                         icon: const Icon(Icons.stop),
                         onPressed: () async {
                           await allSongs[i]['player'].stop();
+
+                          setState(() {
+                            isPlay = false;
+                            allSongs[i]['animationController'].reset();
+                          });
                         },
                       ),
                     ],
@@ -135,5 +178,19 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+
+  playOrPauseAudio({int index = 0}) async {
+    setState(() {
+      isPlay = !isPlay;
+    });
+
+    if (isPlay) {
+      allSongs[index]['animationController'].forward();
+    } else {
+      allSongs[index]['animationController'].reverse();
+    }
+
+    await allSongs[index]['player'].playOrPause();
   }
 }
